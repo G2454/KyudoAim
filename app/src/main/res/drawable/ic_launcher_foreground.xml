@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A kasumi-mato (target) with a vermilion bow edge splitting it: the half-moon nerai. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/paper"
+        android:pathData="M54,54m-28,0a28,28 0,1 0,56 0a28,28 0,1 0,-56 0" />
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M54,54m-21,0a21,21 0,1 0,42 0a21,21 0,1 0,-42 0" />
+    <path
+        android:fillColor="@color/paper"
+        android:pathData="M54,54m-15,0a15,15 0,1 0,30 0a15,15 0,1 0,-30 0" />
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M54,54m-8,0a8,8 0,1 0,16 0a8,8 0,1 0,-16 0" />
+    <path
+        android:fillColor="@color/vermilion"
+        android:pathData="M46,20h8v68h-8z" />
+</vector>
