@@ -68,7 +68,8 @@ val downloadPoseModel = tasks.register("downloadPoseModel") {
     doLast {
         poseModel.parentFile.mkdirs()
         val tmp = File(poseModel.parentFile, poseModel.name + ".part")
-        val url = java.net.URI(
+        // Gradle's uri() helper: inside build scripts `java` means the Java extension, not the package.
+        val url = uri(
             "https://storage.googleapis.com/mediapipe-models/pose_landmarker/" +
                 "pose_landmarker_full/float16/latest/pose_landmarker_full.task",
         ).toURL()
