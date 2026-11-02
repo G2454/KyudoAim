@@ -4,6 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import com.kyudo.aimhelper.R
 
 // Sumi-ink ground, washi-paper text, one vermilion accent (same palette as the canvas design).
 val Ink = Color(0xFF121417)
@@ -23,6 +27,12 @@ val Bamboo = Color(0xFFC9A46A)
 val MatoBlack = Color(0xFF0A0A0A)
 val Grass = Color(0xFF2B3A2E)
 val Dim = Color(0xFF3A3F46)
+
+/**
+ * Shippori Mincho B1 (SIL OFL 1.1), subset to the characters the app uses, for headings,
+ * kanji and the ○× tally. Bundled so kanji render the same everywhere (screenshot tests too).
+ */
+val Mincho = FontFamily(Font(R.font.shippori_mincho_b1_extrabold, FontWeight.ExtraBold))
 
 @Composable
 fun KyudoTheme(content: @Composable () -> Unit) {

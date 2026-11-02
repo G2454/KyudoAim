@@ -59,7 +59,7 @@ fun NeraiScreen(vm: AppViewModel, onBack: () -> Unit, onStart: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 SightPicture(s.nerai)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(s.nerai.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Paper)
+                    Text(s.nerai.title, fontFamily = Mincho, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Paper)
                     Text(s.nerai.desc, fontSize = 13.sp, color = Soft, lineHeight = 19.sp)
                 }
             }

@@ -116,7 +116,7 @@ private fun SessionCard(s: Session, open: Boolean, onToggle: () -> Unit, onDelet
         }
         Text(
             Stats.tally(s.shots).ifEmpty { "No results logged" },
-            fontFamily = FontFamily.Serif,
+            fontFamily = Mincho,
             fontSize = 17.sp,
             letterSpacing = 3.sp,
             color = Paper,

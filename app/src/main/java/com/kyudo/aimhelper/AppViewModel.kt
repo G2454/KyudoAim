@@ -178,6 +178,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _live.update { it.copy(error = message) }
     }
 
+    // ---- previews and screenshot tests ------------------------------------
+
+    /** Shows the given data without saving it. Used by the screenshot tests only. */
+    internal fun loadPreviewData(sessions: List<Session>, currentId: Long?, live: LiveState? = null) {
+        _sessions.value = sessions
+        _currentId.value = currentId
+        if (live != null) _live.value = live
+    }
+
     // ---- persistence ------------------------------------------------------
 
     private fun persist() {

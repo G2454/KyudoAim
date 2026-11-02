@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    // Screenshot tests on the JVM (Robolectric): ./gradlew recordRoborazziDebug
+    id("io.github.takahirom.roborazzi")
 }
 
 android {
@@ -35,6 +37,20 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged resources (fonts, themes) for screenshot tests.
+            isIncludeAndroidResources = true
+            all {
+                it.maxHeapSize = "2g"
+                it.testLogging {
+                    events("failed", "skipped")
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    showStandardStreams = false
+                }
+            }
+        }
     }
     androidResources {
         // MediaPipe memory-maps the model, so it must stay uncompressed in the APK.
@@ -93,4 +109,13 @@ dependencies {
     implementation("com.google.mediapipe:tasks-vision:0.10.20")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.test.ext:junit-ktx:1.2.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    val roborazzi = "1.38.0"
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:$roborazzi")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:$roborazzi")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:$roborazzi")
 }

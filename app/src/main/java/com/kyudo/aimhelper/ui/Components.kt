@@ -50,7 +50,7 @@ fun ScreenHeader(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 title,
-                fontFamily = FontFamily.Serif,
+                fontFamily = Mincho,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 22.sp,
                 color = Paper,

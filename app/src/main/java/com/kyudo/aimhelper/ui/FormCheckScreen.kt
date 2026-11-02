@@ -72,7 +72,13 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 @Composable
-fun FormCheckScreen(vm: AppViewModel, onBack: () -> Unit, onLog: () -> Unit) {
+fun FormCheckScreen(
+    vm: AppViewModel,
+    onBack: () -> Unit,
+    onLog: () -> Unit,
+    /** Screenshot tests: draw a still backdrop instead of opening the camera. */
+    demoCamera: Boolean = false,
+) {
     val context = LocalContext.current
     val live by vm.live.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -87,7 +93,7 @@ fun FormCheckScreen(vm: AppViewModel, onBack: () -> Unit, onLog: () -> Unit) {
         )
     }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPerm = it }
-    LaunchedEffect(Unit) { if (!hasPerm) launcher.launch(Manifest.permission.CAMERA) }
+    LaunchedEffect(Unit) { if (!hasPerm && !demoCamera) launcher.launch(Manifest.permission.CAMERA) }
 
     val view = LocalView.current
     DisposableEffect(Unit) {
@@ -103,7 +109,10 @@ fun FormCheckScreen(vm: AppViewModel, onBack: () -> Unit, onLog: () -> Unit) {
                 .weight(1f)
                 .background(Color.Black),
         ) {
-            if (hasPerm) {
+            if (demoCamera) {
+                DemoBackdrop(Modifier.fillMaxSize())
+                PoseOverlay(live.frame, live.metrics, settings, Modifier.fillMaxSize())
+            } else if (hasPerm) {
                 CameraWithPose(vm, settings.frontCamera, Modifier.fillMaxSize())
                 PoseOverlay(live.frame, live.metrics, settings, Modifier.fillMaxSize())
             } else {
@@ -160,7 +169,7 @@ fun FormCheckScreen(vm: AppViewModel, onBack: () -> Unit, onLog: () -> Unit) {
             ) {
                 Text(
                     "${live.stage.jp} ${live.stage.label}",
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = Mincho,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 20.sp,
                     color = Paper,
@@ -297,6 +306,17 @@ private fun CameraWithPose(vm: AppViewModel, front: Boolean, modifier: Modifier)
     AndroidView(factory = { previewView }, modifier = modifier)
 }
 
+/** A plain dojo-like wall and floor, used instead of the camera in screenshot tests. */
+@Composable
+private fun DemoBackdrop(modifier: Modifier) {
+    Canvas(modifier) {
+        drawRect(Color(0xFF23272C))
+        val floorTop = size.height * 0.74f
+        drawRect(Color(0xFF3A3028), topLeft = Offset(0f, floorTop), size = androidx.compose.ui.geometry.Size(size.width, size.height - floorTop))
+        drawLine(Color(0xFF4A3E33), Offset(0f, floorTop), Offset(size.width, floorTop), strokeWidth = 2f)
+    }
+}
+
 /** Draws the skeleton plus the arrow, shoulder and hip lines over the preview. */
 @Composable
 private fun PoseOverlay(frame: PoseFrame?, m: FormMetrics?, settings: Settings, modifier: Modifier) {
@@ -370,6 +390,7 @@ private fun HassetsuBar(stage: Stage) {
                 )
                 Text(
                     jp,
+                    fontFamily = Mincho,
                     fontSize = 10.sp,
                     maxLines = 1,
                     color = if (now) Paper else Muted,
@@ -436,12 +457,12 @@ private fun MetricRows(m: FormMetrics?, s: Settings) {
             m?.let { abs(it.arrowAngle) <= s.arrowTolDeg },
         ),
         Row4(
-            "Shoulders ∥ arrow", "within ±%.0f°".format(s.lineTolDeg),
+            "Shoulders vs arrow line", "within ±%.0f°".format(s.lineTolDeg),
             m?.let { "%+.1f°".format(it.shoulderDev) } ?: "—",
             m?.let { abs(it.shoulderDev) <= s.lineTolDeg },
         ),
         Row4(
-            "Hips ∥ shoulders", "within ±%.0f°".format(s.lineTolDeg * 1.5f),
+            "Hips vs shoulders", "within ±%.0f°".format(s.lineTolDeg * 1.5f),
             m?.hipDev?.let { "%+.1f°".format(it) } ?: "—",
             m?.hipDev?.let { abs(it) <= s.lineTolDeg * 1.5f },
         ),

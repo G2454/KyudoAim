@@ -69,8 +69,8 @@ fun ShotLogScreen(vm: AppViewModel, onBack: () -> Unit, onFinish: () -> Unit) {
         )
 
         Row(Modifier.fillMaxWidth()) {
-            Text("◀ Back (ushiro)", fontSize = 12.sp, color = Muted, modifier = Modifier.weight(1f))
-            Text("Front (mae) ▶", fontSize = 12.sp, color = Muted)
+            Text("Back (ushiro)", fontSize = 12.sp, color = Muted, modifier = Modifier.weight(1f))
+            Text("Front (mae)", fontSize = 12.sp, color = Muted)
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,7 +87,7 @@ fun ShotLogScreen(vm: AppViewModel, onBack: () -> Unit, onFinish: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (logged == 0) "—" else Stats.tally(shots),
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = Mincho,
                     fontSize = 18.sp,
                     letterSpacing = 3.sp,
                     color = Paper,

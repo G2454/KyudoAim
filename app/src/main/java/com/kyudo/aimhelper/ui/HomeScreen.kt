@@ -44,9 +44,14 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeScreen(vm: AppViewModel, onStart: () -> Unit, onOpen: (String) -> Unit) {
+fun HomeScreen(
+    vm: AppViewModel,
+    onStart: () -> Unit,
+    onOpen: (String) -> Unit,
+    now: Long = System.currentTimeMillis(),
+) {
     val sessions by vm.sessions.collectAsStateWithLifecycle()
-    val weekAgo = System.currentTimeMillis() - 7L * 24 * 3600 * 1000
+    val weekAgo = now - 7L * 24 * 3600 * 1000
     val weekShots = sessions.filter { it.start >= weekAgo }.flatMap { it.shots }
     val logged = Stats.results(weekShots).size
     val hits = Stats.hits(weekShots)
@@ -60,10 +65,10 @@ fun HomeScreen(vm: AppViewModel, onStart: () -> Unit, onOpen: (String) -> Unit) 
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("弓道 · 狙い", fontFamily = FontFamily.Serif, fontSize = 13.sp, letterSpacing = 4.sp, color = Muted)
+            Text("弓道 · 狙い", fontFamily = Mincho, fontSize = 13.sp, letterSpacing = 4.sp, color = Muted)
             Text(
                 "Kyudo Aim Helper",
-                fontFamily = FontFamily.Serif,
+                fontFamily = Mincho,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 28.sp,
                 color = Paper,
@@ -157,7 +162,7 @@ private fun Tile(glyph: String, title: String, subtitle: String, modifier: Modif
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(glyph, fontFamily = FontFamily.Serif, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Vermilion)
+        Text(glyph, fontFamily = Mincho, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Vermilion)
         Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Paper)
         Text(subtitle, fontSize = 12.sp, color = Muted, lineHeight = 16.sp)
     }
@@ -185,7 +190,7 @@ fun SessionRow(s: Session, onClick: () -> Unit) {
         }
         Text(
             if (logged == 0) "—" else Stats.tally(s.shots).take(12),
-            fontFamily = FontFamily.Serif,
+            fontFamily = Mincho,
             fontSize = 16.sp,
             letterSpacing = 2.sp,
             color = Paper,
