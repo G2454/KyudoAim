@@ -35,7 +35,6 @@ object Lm {
         L_SHOULDER to L_HIP, R_SHOULDER to R_HIP, L_HIP to R_HIP,
         L_HIP to L_KNEE, L_KNEE to L_ANKLE, L_ANKLE to L_FOOT,
         R_HIP to R_KNEE, R_KNEE to R_ANKLE, R_ANKLE to R_FOOT,
-        NOSE to LEFT_EAR, NOSE to RIGHT_EAR,
     )
 
     val JOINTS = listOf(

@@ -159,7 +159,11 @@ private fun SightPicture(ref: NeraiRef) {
 @Composable
 private fun ToggleRow(title: String, sub: String, value: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(end = 12.dp),
+        ) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Paper)
             Text(sub, fontSize = 12.sp, color = Muted, lineHeight = 16.sp)
         }

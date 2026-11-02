@@ -46,6 +46,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -342,6 +343,13 @@ private fun PoseOverlay(frame: PoseFrame?, m: FormMetrics?, settings: Settings, 
         }
 
         if (m != null) {
+            // Head: a circle around the nose, sized from the shoulder width.
+            drawCircle(
+                Paper.copy(alpha = 0.9f),
+                radius = m.shoulderWidth * 0.3f * s,
+                center = map(m.nose),
+                style = Stroke(bone),
+            )
             val dash = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))
             val arrowOk = abs(m.arrowAngle) <= settings.arrowTolDeg
             drawLine(
