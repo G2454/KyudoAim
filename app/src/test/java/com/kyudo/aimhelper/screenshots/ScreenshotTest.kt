@@ -16,11 +16,13 @@ import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.kyudo.aimhelper.AppViewModel
 import com.kyudo.aimhelper.ui.FormCheckScreen
+import com.kyudo.aimhelper.ui.GuideScreen
 import com.kyudo.aimhelper.ui.HomeScreen
 import com.kyudo.aimhelper.ui.Ink
 import com.kyudo.aimhelper.ui.KyudoTheme
 import com.kyudo.aimhelper.ui.NeraiScreen
 import com.kyudo.aimhelper.ui.ReviewScreen
+import com.kyudo.aimhelper.ui.ShotDetailScreen
 import com.kyudo.aimhelper.ui.ShotLogScreen
 import org.junit.Rule
 import org.junit.Test
@@ -84,6 +86,19 @@ class ScreenshotTest {
     fun review() {
         val vm = viewModel()
         shoot("04-review") { ReviewScreen(vm, onBack = {}) }
+    }
+
+    @Test
+    fun shotDetail() {
+        val vm = viewModel()
+        shoot("06-shot-steps") {
+            ShotDetailScreen(vm, DemoData.CURRENT_ID, DemoData.DETAIL_SHOT_ID, onBack = {})
+        }
+    }
+
+    @Test
+    fun guide() {
+        shoot("07-guide") { GuideScreen(onDone = {}, startPage = 3) }
     }
 
     @Test

@@ -13,8 +13,10 @@ def esc(s: str) -> str:
 
 count = 0
 
-# 1. Failed unit tests (JUnit XML written by Gradle).
-for path in glob.glob("app/build/test-results/**/*.xml", recursive=True):
+# 1. Failed tests (JUnit XML from the JVM tests and from the device tests).
+for path in glob.glob("app/build/test-results/**/*.xml", recursive=True) + glob.glob(
+    "app/build/outputs/androidTest-results/**/*.xml", recursive=True
+):
     try:
         root = ET.parse(path).getroot()
     except ET.ParseError:

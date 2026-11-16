@@ -19,18 +19,26 @@ object DemoData {
 
     const val CURRENT_ID = 3L
 
+    /** The shot shown on the step-by-step screenshot (a miss with a short kai). */
+    const val DETAIL_SHOT_ID = 303L
+
+    /** Step start times for a camera-tracked shot with the given kai length. */
+    private fun marks(kai: Long?) = if (kai == null) emptyList() else listOf(0L, 4_200L, 6_400L, 8_900L, 8_900L + kai, 10_400L + kai)
+
     private fun hit(id: Long, x: Float, y: Float, kai: Long? = null, flags: List<String> = emptyList()) =
         Shot(
             id = id, time = NOW - id * 60_000, kaiMs = kai,
             arrowAngle = kai?.let { -1.2f }, shoulderDev = kai?.let { 2.5f }, bowElbow = kai?.let { 171f },
-            flags = flags, result = ShotResult(true, x, y),
+            legSpread = kai?.let { 57f }, headMove = kai?.let { 0.04f },
+            flags = flags, result = ShotResult(true, x, y), marks = marks(kai),
         )
 
     private fun miss(id: Long, side: String, kai: Long? = null, flags: List<String> = emptyList()) =
         Shot(
             id = id, time = NOW - id * 60_000, kaiMs = kai,
             arrowAngle = kai?.let { -3.1f }, shoulderDev = kai?.let { 6.2f }, bowElbow = kai?.let { 164f },
-            flags = flags, result = ShotResult(false, miss = side),
+            legSpread = kai?.let { 61f }, headMove = kai?.let { 0.2f },
+            flags = flags, result = ShotResult(false, miss = side), marks = marks(kai),
         )
 
     val sessions: List<Session> = listOf(

@@ -27,6 +27,11 @@ data class ShotRecord(
     val bowElbow: Float?,
     val headMove: Float,
     val flags: List<String>,
+    /**
+     * When each step started, as SystemClock.uptimeMillis values:
+     * Prepare, Uchiokoshi, Hikiwake, Kai, Hanare, end of Zanshin.
+     */
+    val marks: List<Long>,
 )
 
 data class TrackerUpdate(
@@ -48,9 +53,14 @@ class ShotTracker {
     private var stageSince = 0L
     private var kaiStart = 0L
     private var lastKaiMs = 0L
+    private var prepareAt = 0L
+    private var uchiAt = 0L
+    private var hikiAt = 0L
+    private var releaseAt = 0L
     private var lastSeen = 0L
-    private var prevDraw: Pt? = null
-    private var prevT = 0L
+    /** Recent draw-hand positions, so speed is measured over [SPEED_WINDOW_MS] (smooths jitter). */
+    private val drawHistory = ArrayDeque<Pair<Long, Pt>>()
+    private var windowStart = 0L
     /** Draw-hand speed in shoulder widths per second (smoothed). */
     private var drawSpeed = 0f
     private var highFrames = 0
@@ -60,14 +70,22 @@ class ShotTracker {
     private var releaseSw = 1f
     private var headMove = 0f
 
+    companion object {
+        const val SPEED_WINDOW_MS = 300L
+    }
+
     fun reset() {
         stage = Stage.PREPARE
         stageSince = 0L
         kaiStart = 0L
         lastKaiMs = 0L
+        prepareAt = 0L
+        uchiAt = 0L
+        hikiAt = 0L
+        releaseAt = 0L
         lastSeen = 0L
-        prevDraw = null
-        prevT = 0L
+        drawHistory.clear()
+        windowStart = 0L
         drawSpeed = 0f
         highFrames = 0
         stillSince = -1L
@@ -87,7 +105,7 @@ class ShotTracker {
 
         // Zanshin ends on time even if the archer steps out of frame.
         if (stage == Stage.ZANSHIN && t - stageSince > 1500) {
-            val shot = buildRecord(settings)
+            val shot = buildRecord(settings, t)
             go(Stage.PREPARE, t)
             highFrames = 0
             return TrackerUpdate(stage, 0L, false, shot)
@@ -98,34 +116,48 @@ class ShotTracker {
                 reset()
                 stageSince = t
             }
-            prevDraw = null
+            drawHistory.clear()
             return TrackerUpdate(stage, liveKai(t), false, null)
         }
         lastSeen = t
 
-        val p = prevDraw
-        drawSpeed = if (p != null && prevT > 0 && t > prevT) {
-            val inst = dist(p, m.drawWrist) / m.shoulderWidth / ((t - prevT) / 1000f)
-            drawSpeed * 0.5f + inst * 0.5f
-        } else 0f
-        prevDraw = m.drawWrist
-        prevT = t
+        // Speed = how far the draw hand moved across the last ~300 ms. Measuring over a window
+        // instead of frame to frame keeps 1–2 px of tracking jitter from looking like movement.
+        drawHistory.addLast(t to m.drawWrist)
+        while (drawHistory.size > 2 && t - drawHistory.first().first > SPEED_WINDOW_MS) drawHistory.removeFirst()
+        val t0 = drawHistory.first().first
+        windowStart = t0
+        // Use the farthest point in the window, so a hand moving back and forth still counts.
+        var spread = 0f
+        for ((_, p) in drawHistory) spread = max(spread, dist(p, m.drawWrist))
+        drawSpeed = if (t > t0) spread / m.shoulderWidth / ((t - t0) / 1000f) else 0f
 
         var entered = false
         when (stage) {
             Stage.PREPARE -> {
                 highFrames = if (m.handsHigh) highFrames + 1 else 0
-                if (highFrames >= 3) go(Stage.UCHIOKOSHI, t)
+                if (highFrames >= 3) {
+                    // Prepare (ashibumi → yugamae) isn't detected on its own: show up to
+                    // 5 s before the bow went up, but not before the previous shot ended.
+                    prepareAt = maxOf(stageSince, t - 5_000)
+                    uchiAt = t
+                    go(Stage.UCHIOKOSHI, t)
+                }
             }
 
             Stage.UCHIOKOSHI -> when {
-                !m.handsHigh && m.wristSpan > 1.3f -> go(Stage.HIKIWAKE, t)
+                !m.handsHigh && m.wristSpan > 1.3f -> {
+                    hikiAt = t
+                    go(Stage.HIKIWAKE, t)
+                }
                 m.handsLow && t - stageSince > 800 -> go(Stage.PREPARE, t)
             }
 
             Stage.HIKIWAKE -> {
-                if (isKaiPose(m) && drawSpeed < 0.6f) {
-                    if (stillSince < 0) stillSince = t
+                // Still = the whole window shows (almost) no movement, so the hand has been
+                // still since the window started.
+                if (isKaiPose(m) && drawSpeed < 0.6f && t - windowStart >= SPEED_WINDOW_MS - 50) {
+                    if (stillSince < 0) stillSince = windowStart
                     if (t - stillSince >= 300) {
                         val start = stillSince
                         go(Stage.KAI, t)
@@ -148,6 +180,7 @@ class ShotTracker {
                 when {
                     released -> {
                         lastKaiMs = t - kaiStart
+                        releaseAt = t
                         noseAtRelease = kaiSamples.lastOrNull()?.nose ?: m.nose
                         releaseSw = m.shoulderWidth
                         headMove = 0f
@@ -183,7 +216,7 @@ class ShotTracker {
         else -> 0L
     }
 
-    private fun buildRecord(s: Settings): ShotRecord {
+    private fun buildRecord(s: Settings, endAt: Long): ShotRecord {
         fun avg(sel: (FormMetrics) -> Float?): Float? {
             val v = kaiSamples.mapNotNull(sel)
             return if (v.isEmpty()) null else v.average().toFloat()
@@ -211,6 +244,7 @@ class ShotTracker {
             bowElbow = avg { it.bowElbow },
             headMove = headMove,
             flags = flags,
+            marks = listOf(prepareAt, uchiAt, hikiAt, kaiStart, releaseAt, endAt),
         )
         kaiSamples.clear()
         return record

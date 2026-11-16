@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     // Screenshot tests on the JVM (Robolectric): ./gradlew recordRoborazziDebug
     id("io.github.takahirom.roborazzi")
+    // Test coverage: ./gradlew koverHtmlReportDebug
+    id("org.jetbrains.kotlinx.kover")
 }
 
 android {
@@ -16,6 +18,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -51,6 +54,13 @@ android {
                 }
             }
         }
+    }
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = false
+        htmlReport = true
+        // The camera screen is made for a phone on a tripod, so portrait is locked on purpose.
+        disable += listOf("LockedOrientationActivity", "DiscouragedApi")
     }
     androidResources {
         // MediaPipe memory-maps the model, so it must stay uncompressed in the APK.
@@ -106,6 +116,7 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$camerax")
     implementation("androidx.camera:camera-lifecycle:$camerax")
     implementation("androidx.camera:camera-view:$camerax")
+    implementation("androidx.camera:camera-video:$camerax")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.20")
 
@@ -119,4 +130,36 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi:$roborazzi")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:$roborazzi")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:$roborazzi")
+
+    // Tests on a device or emulator: ./gradlew connectedDebugAndroidTest
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.test.ext:junit-ktx:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                // Needs a real camera, encoder or speech engine: covered by the device tests.
+                classes(
+                    "com.kyudo.aimhelper.MainActivity*",
+                    "com.kyudo.aimhelper.VoiceCoach*",
+                    "com.kyudo.aimhelper.pose.PoseEngine*",
+                    "com.kyudo.aimhelper.video.*",
+                    "*ComposableSingletons*",
+                )
+            }
+        }
+        variant("debug") {
+            verify {
+                rule {
+                    // Line coverage of the app code by the JVM tests. Raise it as tests grow.
+                    minBound(60)
+                }
+            }
+        }
+    }
 }

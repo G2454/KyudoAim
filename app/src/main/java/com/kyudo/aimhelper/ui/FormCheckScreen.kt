@@ -30,7 +30,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -60,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyudo.aimhelper.AppViewModel
 import com.kyudo.aimhelper.data.Settings
 import com.kyudo.aimhelper.data.Shot
+import com.kyudo.aimhelper.data.Terms
 import com.kyudo.aimhelper.pose.FormMetrics
 import com.kyudo.aimhelper.pose.HASSETSU_JP
 import com.kyudo.aimhelper.pose.Lm
@@ -67,6 +73,7 @@ import com.kyudo.aimhelper.pose.PoseEngine
 import com.kyudo.aimhelper.pose.PoseFrame
 import com.kyudo.aimhelper.pose.Pt
 import com.kyudo.aimhelper.pose.Stage
+import com.kyudo.aimhelper.video.ShotRecorder
 import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.min
@@ -79,7 +86,9 @@ fun FormCheckScreen(
     onLog: () -> Unit,
     /** Screenshot tests: draw a still backdrop instead of opening the camera. */
     demoCamera: Boolean = false,
+    onHelp: () -> Unit = {},
 ) {
+    val showKanji = LocalShowKanji.current
     val context = LocalContext.current
     val live by vm.live.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -114,7 +123,7 @@ fun FormCheckScreen(
                 DemoBackdrop(Modifier.fillMaxSize())
                 PoseOverlay(live.frame, live.metrics, settings, Modifier.fillMaxSize())
             } else if (hasPerm) {
-                CameraWithPose(vm, settings.frontCamera, Modifier.fillMaxSize())
+                CameraWithPose(vm, settings.frontCamera, settings.recordVideo, Modifier.fillMaxSize())
                 PoseOverlay(live.frame, live.metrics, settings, Modifier.fillMaxSize())
             } else {
                 Column(
@@ -137,6 +146,25 @@ fun FormCheckScreen(
             ) {
                 BackButton(onBack)
                 Box(Modifier.weight(1f))
+                if (live.recording) {
+                    Row(
+                        Modifier
+                            .padding(end = 8.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Ink.copy(alpha = 0.85f))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE5484D)),
+                        )
+                        Text("REC", color = Paper, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 val status = when {
                     live.error != null -> "Error"
                     live.metrics == null -> "Step into frame"
@@ -158,6 +186,17 @@ fun FormCheckScreen(
                     )
                     Text(status, color = Paper, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
+                IconButton(
+                    onClick = onHelp,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Ink.copy(alpha = 0.85f)),
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = Paper),
+                ) {
+                    Icon(Icons.Filled.Info, contentDescription = "How to use Form check")
+                }
             }
 
             Column(
@@ -169,11 +208,16 @@ fun FormCheckScreen(
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
                 Text(
-                    "${live.stage.jp} ${live.stage.label}",
+                    if (showKanji) "${live.stage.jp} ${live.stage.label}" else live.stage.label,
                     fontFamily = Mincho,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 20.sp,
                     color = Paper,
+                )
+                Text(
+                    Terms.termsFor(live.stage).joinToString(" · ") { it.english },
+                    fontSize = 12.sp,
+                    color = Soft,
                 )
                 if (live.stage == Stage.KAI || live.stage == Stage.ZANSHIN) {
                     Text(
@@ -199,7 +243,7 @@ fun FormCheckScreen(
             }
         }
 
-        HassetsuBar(live.stage)
+        HassetsuBar(live.stage, showKanji)
 
         Column(
             Modifier
@@ -209,11 +253,13 @@ fun FormCheckScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             val cue = live.flags.firstOrNull()
-            if (cue != null) {
-                CueCard("${cue.label} — ${cue.detail}")
-            } else {
-                live.lastShot?.let { LastShotCard(it) }
+            val last = live.lastShot
+            when {
+                cue != null -> CueCard("${cue.label} — ${cue.detail}")
+                live.metrics == null && live.error == null -> HintCard()
+                last != null -> LastShotCard(last)
             }
+            live.videoNote?.let { Text(it, fontSize = 12.sp, color = Muted, modifier = Modifier.padding(vertical = 4.dp)) }
             MetricRows(live.metrics, settings)
         }
 
@@ -244,7 +290,7 @@ fun FormCheckScreen(
 
 /** Binds CameraX preview + analysis and feeds frames to MediaPipe. Rebinds when the camera flips. */
 @Composable
-private fun CameraWithPose(vm: AppViewModel, front: Boolean, modifier: Modifier) {
+private fun CameraWithPose(vm: AppViewModel, front: Boolean, record: Boolean, modifier: Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember {
@@ -255,8 +301,9 @@ private fun CameraWithPose(vm: AppViewModel, front: Boolean, modifier: Modifier)
         }
     }
 
-    DisposableEffect(front, lifecycleOwner) {
+    DisposableEffect(front, record, lifecycleOwner) {
         val executor = Executors.newSingleThreadExecutor()
+        val recorder = if (record) ShotRecorder(context, vm::onClip) else null
         val engine = PoseEngine(context.applicationContext, vm::onPoseFrame, vm::onPoseError)
         val future = ProcessCameraProvider.getInstance(context)
         var provider: ProcessCameraProvider? = null
@@ -290,7 +337,20 @@ private fun CameraWithPose(vm: AppViewModel, front: Boolean, modifier: Modifier)
             val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
             try {
                 p.unbindAll()
-                p.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                if (recorder != null) {
+                    try {
+                        p.bindToLifecycle(lifecycleOwner, selector, preview, analysis, recorder.videoCapture)
+                        vm.attachRecorder(recorder)
+                        recorder.start()
+                    } catch (e: Exception) {
+                        // Some phones can't preview, analyse and record at once: keep tracking.
+                        p.unbindAll()
+                        p.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                        vm.onVideoUnavailable("This phone can't record video while tracking, so shots are saved without video.")
+                    }
+                } else {
+                    p.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                }
             } catch (e: Exception) {
                 vm.onPoseError("Camera error: ${e.message}")
             }
@@ -298,6 +358,10 @@ private fun CameraWithPose(vm: AppViewModel, front: Boolean, modifier: Modifier)
 
         onDispose {
             disposed = true
+            recorder?.let {
+                vm.detachRecorder(it)
+                it.release()
+            }
             provider?.unbindAll()
             executor.execute { engine.close() }
             executor.shutdown()
@@ -375,37 +439,61 @@ private fun PoseOverlay(frame: PoseFrame?, m: FormMetrics?, settings: Settings, 
 }
 
 @Composable
-private fun HassetsuBar(stage: Stage) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        HASSETSU_JP.forEachIndexed { i, jp ->
-            val now = i in stage.first..stage.last
-            val done = i < stage.first
-            Column(
-                Modifier.width(40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Box(
-                    Modifier
-                        .size(if (now) 12.dp else 8.dp)
-                        .clip(CircleShape)
-                        .background(if (now) Vermilion else if (done) Soft else Dim),
-                )
-                Text(
-                    jp,
-                    fontFamily = Mincho,
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    color = if (now) Paper else Muted,
-                    fontWeight = if (now) FontWeight.Bold else FontWeight.Normal,
-                )
+private fun HassetsuBar(stage: Stage, showKanji: Boolean) {
+    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            HASSETSU_JP.forEachIndexed { i, jp ->
+                val now = i in stage.first..stage.last
+                val done = i < stage.first
+                Column(
+                    Modifier.width(40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .size(if (now) 12.dp else 8.dp)
+                            .clip(CircleShape)
+                            .background(if (now) Vermilion else if (done) Soft else Dim),
+                    )
+                    Text(
+                        if (showKanji) jp else "${i + 1}",
+                        fontFamily = if (showKanji) Mincho else null,
+                        fontSize = if (showKanji) 10.sp else 11.sp,
+                        maxLines = 1,
+                        color = if (now) Paper else Muted,
+                        fontWeight = if (now) FontWeight.Bold else FontWeight.Normal,
+                    )
+                }
             }
         }
+        val steps = if (stage.first == stage.last) "Step ${stage.first + 1} of 8" else "Steps ${stage.first + 1}–${stage.last + 1} of 8"
+        Text(
+            "$steps · " + Terms.termsFor(stage).joinToString(" · ") { "${Terms.name(it, showKanji)} (${it.english})" },
+            modifier = Modifier.padding(top = 6.dp),
+            fontSize = 12.sp,
+            color = Soft,
+            maxLines = 2,
+        )
+    }
+}
+
+@Composable
+private fun HintCard() {
+    Panel(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+        SectionLabel("Getting started")
+        Text(
+            "Put the phone 3–4 m in front of you at chest height, so your whole body and the bow " +
+                "are in view. When the skeleton appears, shoot normally: the steps above light up " +
+                "as you go and each shot is saved by itself.",
+            fontSize = 14.sp,
+            color = Paper,
+            lineHeight = 20.sp,
+        )
+        Text("Tap the info button at the top right for the full guide.", fontSize = 12.sp, color = Muted)
     }
 }
 

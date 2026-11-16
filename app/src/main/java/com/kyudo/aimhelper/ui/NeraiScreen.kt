@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +46,7 @@ import com.kyudo.aimhelper.AppViewModel
 import com.kyudo.aimhelper.data.NeraiRef
 
 @Composable
-fun NeraiScreen(vm: AppViewModel, onBack: () -> Unit, onStart: () -> Unit) {
+fun NeraiScreen(vm: AppViewModel, onBack: () -> Unit, onStart: () -> Unit, onGuide: () -> Unit = {}) {
     val s by vm.settings.collectAsStateWithLifecycle()
 
     Column(
@@ -53,13 +56,21 @@ fun NeraiScreen(vm: AppViewModel, onBack: () -> Unit, onStart: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ScreenHeader("狙い Nerai & setup", "Your sight picture at kai, right eye", onBack)
+        val showKanji = LocalShowKanji.current
+        ScreenHeader(
+            if (showKanji) "狙い Nerai & setup" else "Nerai & setup",
+            "Nerai means aim: what your right eye sees at full draw (kai)",
+            onBack,
+        )
 
         Panel(Modifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 SightPicture(s.nerai)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(s.nerai.title, fontFamily = Mincho, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Paper)
+                    Text(
+                        if (showKanji && s.nerai.kanji != null) "${s.nerai.kanji} ${s.nerai.title}" else s.nerai.title,
+                        fontFamily = Mincho, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Paper,
+                    )
                     Text(s.nerai.desc, fontSize = 13.sp, color = Soft, lineHeight = 19.sp)
                 }
             }
@@ -89,6 +100,23 @@ fun NeraiScreen(vm: AppViewModel, onBack: () -> Unit, onStart: () -> Unit) {
             color = Muted,
             lineHeight = 17.sp,
         )
+
+        SectionLabel("Display & video")
+        Panel(Modifier.fillMaxWidth()) {
+            ToggleRow(
+                "Show kanji",
+                "Off: Japanese terms in romaji only (Kai, Hikiwake…). On: kanji next to them.",
+                s.showKanji,
+            ) { v -> vm.updateSettings { it.copy(showKanji = v) } }
+            HorizontalDivider(color = Line)
+            ToggleRow(
+                "Record shot videos",
+                "Films each shot for Shot review. Videos stay on this phone until you save or share them.",
+                s.recordVideo,
+            ) { v -> vm.updateSettings { it.copy(recordVideo = v) } }
+            HorizontalDivider(color = Line)
+            SecondaryButton("How to use the app", onGuide, Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
 
         SectionLabel("Coaching")
         Panel(Modifier.fillMaxWidth()) {
@@ -158,7 +186,15 @@ private fun SightPicture(ref: NeraiRef) {
 
 @Composable
 private fun ToggleRow(title: String, sub: String, value: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The whole row is the switch: easier to hit, and screen readers read the label with it.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = value, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(
             Modifier
                 .weight(1f)
@@ -169,7 +205,7 @@ private fun ToggleRow(title: String, sub: String, value: Boolean, onChange: (Boo
         }
         Switch(
             checked = value,
-            onCheckedChange = onChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(checkedTrackColor = Vermilion, checkedThumbColor = Ink),
         )
     }

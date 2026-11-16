@@ -83,6 +83,11 @@ class ShotTrackerTest {
         assertTrue("kai was ${s.kaiMs} ms", s.kaiMs in 3_300L..4_200L)
         assertFalse(s.flags.contains("Short kai"))
         assertTrue("flags ${s.flags}", s.flags.isEmpty())
+
+        // Step start times: Prepare, Uchiokoshi, Hikiwake, Kai, Hanare, end — in order.
+        assertEquals(6, s.marks.size)
+        assertTrue("marks ${s.marks}", s.marks.zipWithNext().all { (a, b) -> a <= b })
+        assertEquals(s.kaiMs, s.marks[4] - s.marks[3])
     }
 
     @Test

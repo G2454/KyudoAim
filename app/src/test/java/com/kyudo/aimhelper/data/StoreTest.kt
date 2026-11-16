@@ -27,6 +27,8 @@ class StoreTest {
                         shoulderDev = 4.5f, hipDev = null, legSpread = 58f, bowElbow = 172f,
                         headMove = 0.05f, flags = listOf("Shoulders off the arrow line"),
                         result = ShotResult(true, 0.4f, -0.2f),
+                        videoPath = "/data/user/0/com.kyudo.aimhelper/files/videos/shot_10.mp4",
+                        marks = listOf(0L, 4_000L, 6_100L, 8_700L, 12_100L, 13_600L),
                     ),
                     Shot(id = 11, time = 1_700_000_002_000, result = ShotResult(false, miss = "Front")),
                     Shot(id = 12, time = 1_700_000_003_000),
@@ -40,7 +42,10 @@ class StoreTest {
     @Test
     fun settings_roundTrip() {
         val store = Store(context)
-        val s = Settings(nerai = NeraiRef.EDGE, voice = false, frontCamera = true, minKaiSec = 4.5f, lineTolDeg = 3f, arrowTolDeg = 6f)
+        val s = Settings(
+            nerai = NeraiRef.EDGE, voice = false, frontCamera = true, minKaiSec = 4.5f, lineTolDeg = 3f,
+            arrowTolDeg = 6f, showKanji = true, recordVideo = false, seenGuide = true,
+        )
         store.saveSettings(s)
         assertEquals(s, Store(context).loadSettings())
     }

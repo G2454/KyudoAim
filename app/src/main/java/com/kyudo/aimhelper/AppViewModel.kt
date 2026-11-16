@@ -15,6 +15,9 @@ import com.kyudo.aimhelper.pose.MetricsCalc
 import com.kyudo.aimhelper.pose.PoseFrame
 import com.kyudo.aimhelper.pose.ShotTracker
 import com.kyudo.aimhelper.pose.Stage
+import com.kyudo.aimhelper.video.ShotRecorder
+import com.kyudo.aimhelper.video.VideoTools
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,8 +26,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToInt
 
 /** Everything the camera screen shows, refreshed on every analysed frame. */
 data class LiveState(
@@ -36,6 +42,10 @@ data class LiveState(
     val fps: Float = 0f,
     val error: String? = null,
     val lastShot: Shot? = null,
+    /** The camera is recording the shot video right now. */
+    val recording: Boolean = false,
+    /** Set when video recording isn't available on this phone. */
+    val videoNote: String? = null,
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -65,6 +75,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun newId() = ids.incrementAndGet()
 
+    @Volatile
+    private var recorder: ShotRecorder? = null
+
+    /** Step start times (uptime) of shots whose video is still being cut, by shot id. */
+    internal val pendingMarks = ConcurrentHashMap<Long, List<Long>>()
+
+    /** Where file work runs. Tests swap in Dispatchers.Unconfined to run it inline. */
+    internal var io: CoroutineDispatcher = Dispatchers.IO
+
+    /** Cuts a recording down to the shot. Tests swap in a fake (no real video files). */
+    internal var trimmer: (File, File, Long) -> Long? = VideoTools::trim
+
     // ---- sessions ---------------------------------------------------------
 
     fun startSession(label: String = "Practice") {
@@ -79,6 +101,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteSession(id: Long) {
+        _sessions.value.find { it.id == id }?.shots?.forEach { shot ->
+            shot.videoPath?.let { path -> viewModelScope.launch(io) { File(path).delete() } }
+        }
         _sessions.update { list -> list.filterNot { it.id == id } }
         if (_currentId.value == id) _currentId.value = null
         persist()
@@ -128,6 +153,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.saveSettings(_settings.value)
     }
 
+    fun markGuideSeen() = updateSettings { it.copy(seenGuide = true) }
+
+    // ---- shot videos ------------------------------------------------------
+
+    fun attachRecorder(r: ShotRecorder) {
+        recorder = r
+        _live.update { it.copy(videoNote = null) }
+    }
+
+    fun detachRecorder(r: ShotRecorder) {
+        if (recorder === r) recorder = null
+        _live.update { it.copy(recording = false) }
+    }
+
+    fun onVideoUnavailable(message: String) {
+        recorder = null
+        _live.update { it.copy(videoNote = message, recording = false) }
+    }
+
+    /** A recording containing a shot has finished: trim it to the shot and attach it. */
+    fun onClip(clip: ShotRecorder.Clip) {
+        val marks = pendingMarks.remove(clip.shotId)
+        if (marks == null || marks.size < 6) {
+            clip.file.delete()
+            return
+        }
+        viewModelScope.launch(io) {
+            val wantedStart = (marks[0] - clip.startUptime).coerceAtLeast(0)
+            val dst = File(clip.file.parentFile, "shot_${clip.shotId}.mp4")
+            val realStart = trimmer(clip.file, dst, wantedStart)
+            val (path, base) = if (realStart != null) {
+                clip.file.delete()
+                dst.absolutePath to realStart
+            } else {
+                clip.file.absolutePath to 0L
+            }
+            val offsets = marks.map { (it - clip.startUptime - base).coerceAtLeast(0) }
+            updateShot(clip.shotId) { it.copy(videoPath = path, marks = offsets) }
+        }
+    }
+
+    private fun updateShot(shotId: Long, transform: (Shot) -> Shot) {
+        _sessions.update { list ->
+            list.map { s ->
+                if (s.shots.none { it.id == shotId }) s
+                else s.copy(shots = s.shots.map { if (it.id == shotId) transform(it) else it })
+            }
+        }
+        persist()
+    }
+
     // ---- live pose (called on the MediaPipe thread) -----------------------
 
     fun resetTracker() {
@@ -164,14 +240,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 bowElbow = rec.bowElbow,
                 headMove = rec.headMove,
                 flags = rec.flags,
+                // Relative to the start of Prepare until a video replaces them (see onClip).
+                marks = rec.marks.map { it - rec.marks.first() },
             )
             updateCurrent { it.copy(shots = it.shots + shot) }
+            recorder?.let { r ->
+                if (r.isRecording) {
+                    pendingMarks[shot.id] = rec.marks
+                    r.cut(shot.id)
+                }
+            }
             lastShot = shot
             if (s.voice) voice.say("Kai %.1f seconds".format(Locale.US, rec.kaiMs / 1000f))
         }
         if (u.enteredKai && s.voice) flags.firstOrNull()?.let { voice.say(it.voice) }
 
-        _live.value = LiveState(frame, m, u.stage, u.kaiMs, flags, fps, _live.value.error, lastShot)
+        // Drop long stretches of waiting between shots so videos stay small.
+        recorder?.let { r ->
+            if (u.stage == Stage.PREPARE && !r.isCutting && r.elapsedMs > 90_000) r.cut(null)
+        }
+
+        val prev = _live.value
+        val next = LiveState(
+            frame, m, u.stage, u.kaiMs, flags, fps.roundToInt().toFloat(), prev.error, lastShot,
+            recording = recorder?.isRecording == true,
+            videoNote = prev.videoNote,
+        )
+        // Nobody in view and nothing changed: skip the update so the screen isn't redrawn 30×/s.
+        if (next != prev) _live.value = next
     }
 
     fun onPoseError(message: String) {
@@ -190,7 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- persistence ------------------------------------------------------
 
     private fun persist() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(io) {
             saveLock.withLock { store.saveSessions(_sessions.value) }
         }
     }

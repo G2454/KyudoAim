@@ -42,6 +42,9 @@ class Store(context: Context) {
             minKaiSec = prefs.getFloat("minKaiSec", d.minKaiSec),
             lineTolDeg = prefs.getFloat("lineTolDeg", d.lineTolDeg),
             arrowTolDeg = prefs.getFloat("arrowTolDeg", d.arrowTolDeg),
+            showKanji = prefs.getBoolean("showKanji", d.showKanji),
+            recordVideo = prefs.getBoolean("recordVideo", d.recordVideo),
+            seenGuide = prefs.getBoolean("seenGuide", d.seenGuide),
         )
     }
 
@@ -53,6 +56,9 @@ class Store(context: Context) {
             .putFloat("minKaiSec", s.minKaiSec)
             .putFloat("lineTolDeg", s.lineTolDeg)
             .putFloat("arrowTolDeg", s.arrowTolDeg)
+            .putBoolean("showKanji", s.showKanji)
+            .putBoolean("recordVideo", s.recordVideo)
+            .putBoolean("seenGuide", s.seenGuide)
             .apply()
     }
 
@@ -86,6 +92,8 @@ class Store(context: Context) {
         putNum("bowElbow", s.bowElbow)
         putNum("headMove", s.headMove)
         put("flags", JSONArray().also { arr -> s.flags.forEach { arr.put(it) } })
+        s.videoPath?.let { put("videoPath", it) }
+        if (s.marks.isNotEmpty()) put("marks", JSONArray().also { arr -> s.marks.forEach { arr.put(it) } })
         s.result?.let { r ->
             put("result", JSONObject().apply {
                 put("hit", r.hit)
@@ -98,6 +106,7 @@ class Store(context: Context) {
 
     private fun shotFrom(o: JSONObject): Shot {
         val flags = o.optJSONArray("flags") ?: JSONArray()
+        val marks = o.optJSONArray("marks") ?: JSONArray()
         val r = o.optJSONObject("result")
         return Shot(
             id = o.getLong("id"),
@@ -110,6 +119,8 @@ class Store(context: Context) {
             bowElbow = o.floatOrNull("bowElbow"),
             headMove = o.floatOrNull("headMove"),
             flags = (0 until flags.length()).map { flags.getString(it) },
+            videoPath = if (o.has("videoPath") && !o.isNull("videoPath")) o.getString("videoPath") else null,
+            marks = (0 until marks.length()).map { marks.getLong(it) },
             result = r?.let {
                 ShotResult(
                     hit = it.getBoolean("hit"),

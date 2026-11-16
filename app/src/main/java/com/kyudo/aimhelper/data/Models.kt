@@ -26,6 +26,14 @@ data class Shot(
     val headMove: Float? = null,
     val flags: List<String> = emptyList(),
     val result: ShotResult? = null,
+    /** The shot's video in the app's private storage, if one was recorded. */
+    val videoPath: String? = null,
+    /**
+     * When each step started, in ms from the start of the video (or from the start of the
+     * Prepare step when there is no video): Prepare, Uchiokoshi, Hikiwake, Kai, Hanare, end.
+     * Empty for shots logged by hand.
+     */
+    val marks: List<Long> = emptyList(),
 )
 
 data class Session(
@@ -35,18 +43,19 @@ data class Session(
     val shots: List<Shot>,
 )
 
-enum class NeraiRef(val label: String, val title: String, val desc: String) {
+/** Sight references. [kanji] is shown only when the "Show kanji" setting is on. */
+enum class NeraiRef(val label: String, val title: String, val kanji: String?, val desc: String) {
     HIDDEN(
-        "Hidden", "Mato hidden",
-        "The mato sits fully behind the bow. Used by some schools and teachers.",
+        "Hidden", "Target hidden", null,
+        "The target (mato) sits fully behind the bow. Used by some schools and teachers.",
     ),
     HALF(
-        "Half moon", "半月 Hangetsu",
-        "The bow's right edge splits the mato, so half of it is visible. The most common reference.",
+        "Half moon", "Hangetsu (half moon)", "半月",
+        "The bow's right edge splits the target (mato), so half of it is visible. The most common reference.",
     ),
     EDGE(
-        "Edge", "Mato at the edge",
-        "The bow just touches the left edge of the mato, which is almost fully visible.",
+        "Edge", "Target at the edge", null,
+        "The bow just touches the left edge of the target (mato), which is almost fully visible.",
     ),
 }
 
@@ -60,4 +69,10 @@ data class Settings(
     val lineTolDeg: Float = 4f,
     /** Allowed tilt of the arrow from horizontal, in degrees. */
     val arrowTolDeg: Float = 4f,
+    /** Show Japanese terms in kanji next to the romaji. Off by default. */
+    val showKanji: Boolean = false,
+    /** Record a short video of each shot for Shot review. */
+    val recordVideo: Boolean = true,
+    /** The first-launch guide has been shown. */
+    val seenGuide: Boolean = false,
 )

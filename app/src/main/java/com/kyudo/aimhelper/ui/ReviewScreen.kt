@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,7 +40,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun ReviewScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun ReviewScreen(vm: AppViewModel, onBack: () -> Unit, onOpenShot: (sessionId: Long, shotId: Long) -> Unit = { _, _ -> }) {
     val sessions by vm.sessions.collectAsStateWithLifecycle()
     var expanded by remember { mutableStateOf(sessions.lastOrNull()?.id) }
     var toDelete by remember { mutableStateOf<Session?>(null) }
@@ -50,7 +51,7 @@ fun ReviewScreen(vm: AppViewModel, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ScreenHeader("Shot review", "${sessions.size} session(s) saved on this phone", onBack)
+            ScreenHeader("Shot review", "Tap a shot to watch it step by step", onBack)
         }
         if (sessions.isEmpty()) {
             item {
@@ -67,6 +68,7 @@ fun ReviewScreen(vm: AppViewModel, onBack: () -> Unit) {
                 open = expanded == s.id,
                 onToggle = { expanded = if (expanded == s.id) null else s.id },
                 onDelete = { toDelete = s },
+                onOpenShot = { shotId -> onOpenShot(s.id, shotId) },
             )
         }
     }
@@ -88,7 +90,13 @@ fun ReviewScreen(vm: AppViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SessionCard(s: Session, open: Boolean, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun SessionCard(
+    s: Session,
+    open: Boolean,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit,
+    onOpenShot: (Long) -> Unit,
+) {
     val fmt = SimpleDateFormat("EEE d MMM yyyy · HH:mm", Locale.getDefault())
     val rate = Stats.hitRate(s.shots)
     val kai = Stats.avgKaiSec(s.shots)
@@ -97,6 +105,7 @@ private fun SessionCard(s: Session, open: Boolean, onToggle: () -> Unit, onDelet
         Row(
             Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clickable(role = Role.Button, onClick = onToggle),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -143,7 +152,7 @@ private fun SessionCard(s: Session, open: Boolean, onToggle: () -> Unit, onDelet
             SectionLabel("Shots", Modifier.padding(top = 6.dp))
             s.shots.forEachIndexed { i, shot ->
                 if (i > 0) HorizontalDivider(color = Line)
-                ShotRowView(i + 1, shot)
+                ShotRowView(i + 1, shot) { onOpenShot(shot.id) }
             }
             TextButton(onClick = onDelete) { Text("Delete session", color = WarnText) }
         }
@@ -151,8 +160,15 @@ private fun SessionCard(s: Session, open: Boolean, onToggle: () -> Unit, onDelet
 }
 
 @Composable
-private fun ShotRowView(n: Int, shot: Shot) {
-    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun ShotRowView(n: Int, shot: Shot, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text("#$n", fontSize = 12.sp, color = Muted, modifier = Modifier.width(28.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -172,5 +188,15 @@ private fun ShotRowView(n: Int, shot: Shot) {
                 Text(shot.flags.joinToString(" · "), fontSize = 12.sp, color = WarnText, lineHeight = 17.sp)
             }
         }
+        Text(
+            when {
+                shot.videoPath != null -> "Video ›"
+                shot.marks.isNotEmpty() -> "Steps ›"
+                else -> "›"
+            },
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (shot.videoPath != null) Vermilion else Muted,
+        )
     }
 }

@@ -16,7 +16,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,8 +75,14 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("弓道 · 狙い", fontFamily = Mincho, fontSize = 13.sp, letterSpacing = 4.sp, color = Muted)
+        val showKanji = LocalShowKanji.current
+        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (showKanji) {
+                Text("弓道 · 狙い", fontFamily = Mincho, fontSize = 13.sp, letterSpacing = 4.sp, color = Muted)
+            } else {
+                Text("KYUDO TRAINING", fontSize = 12.sp, letterSpacing = 2.sp, color = Muted)
+            }
             Text(
                 "Kyudo Aim Helper",
                 fontFamily = Mincho,
@@ -73,6 +90,18 @@ fun HomeScreen(
                 fontSize = 28.sp,
                 color = Paper,
             )
+        }
+        IconButton(
+            onClick = { onOpen("guide") },
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Surface1)
+                .border(1.dp, Line, CircleShape),
+            colors = IconButtonDefaults.iconButtonColors(contentColor = Paper),
+        ) {
+            Icon(Icons.Filled.Info, contentDescription = "How to use the app")
+        }
         }
 
         Panel(Modifier.fillMaxWidth()) {
@@ -101,12 +130,12 @@ fun HomeScreen(
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile("形", "Form check", "Live pose · hassetsu", Modifier.weight(1f)) { onOpen("form") }
-                Tile("的", "Shot log", "Hit map · drift", Modifier.weight(1f)) { onOpen("log") }
+                Tile("形", Icons.Filled.Person, "Form check", "Live pose · the 8 steps", Modifier.weight(1f)) { onOpen("form") }
+                Tile("的", Icons.Filled.LocationOn, "Shot log", "Where arrows land", Modifier.weight(1f)) { onOpen("log") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Tile("録", "Shot review", "Sessions · flags", Modifier.weight(1f)) { onOpen("review") }
-                Tile("狙", "Nerai & setup", "Sight · camera · tolerances", Modifier.weight(1f)) { onOpen("nerai") }
+                Tile("録", Icons.Filled.PlayArrow, "Shot review", "Videos, step by step", Modifier.weight(1f)) { onOpen("review") }
+                Tile("狙", Icons.Filled.Settings, "Nerai & setup", "Aim · camera · settings", Modifier.weight(1f)) { onOpen("nerai") }
             }
         }
 
@@ -151,7 +180,7 @@ private fun RateRing(rate: Float?) {
 }
 
 @Composable
-private fun Tile(glyph: String, title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
+private fun Tile(glyph: String, icon: ImageVector, title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier
@@ -162,7 +191,11 @@ private fun Tile(glyph: String, title: String, subtitle: String, modifier: Modif
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(glyph, fontFamily = Mincho, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Vermilion)
+        if (LocalShowKanji.current) {
+            Text(glyph, fontFamily = Mincho, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Vermilion)
+        } else {
+            Icon(icon, contentDescription = null, tint = Vermilion, modifier = Modifier.size(28.dp))
+        }
         Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Paper)
         Text(subtitle, fontSize = 12.sp, color = Muted, lineHeight = 16.sp)
     }
