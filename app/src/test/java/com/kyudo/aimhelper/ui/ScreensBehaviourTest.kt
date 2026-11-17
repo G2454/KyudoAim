@@ -40,8 +40,9 @@ class ScreensBehaviourTest {
     private fun waitingShot(vm: AppViewModel): Shot =
         vm.sessions.value.first { it.id == DemoData.CURRENT_ID }.shots.first { it.id == 306L }
 
+    // Case-insensitive: section labels are drawn in capitals.
     private fun shown(text: String, substring: Boolean = false) =
-        compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
+        compose.onAllNodesWithText(text, substring = substring, ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
 
     // ---- Shot log ---------------------------------------------------------------
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -117,7 +118,7 @@ fun GuideScreen(onDone: () -> Unit, startPage: Int = 0) {
                 color = Paper,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onDone) { Text("Skip", color = Muted) }
+            TextButton(onClick = onDone, modifier = Modifier.heightIn(min = 48.dp)) { Text("Skip", color = Muted) }
         }
 
         HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { index ->

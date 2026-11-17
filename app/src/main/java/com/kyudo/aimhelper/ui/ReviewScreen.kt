@@ -154,7 +154,7 @@ private fun SessionCard(
                 if (i > 0) HorizontalDivider(color = Line)
                 ShotRowView(i + 1, shot) { onOpenShot(shot.id) }
             }
-            TextButton(onClick = onDelete) { Text("Delete session", color = WarnText) }
+            TextButton(onClick = onDelete, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete session", color = WarnText) }
         }
     }
 }
